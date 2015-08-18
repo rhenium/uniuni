@@ -1,0 +1,9 @@
+/.bundle/
+/.yardoc
+/Gemfile.lock
+/tmp/key
+/tmp/crt
+.*.sw*
+.*.local
+/plum.yml
+/dependency.yml

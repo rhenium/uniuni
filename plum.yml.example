@@ -1,0 +1,16 @@
+root: /srv/http
+index: index.html
+dependency_cache: ./dependency.yml
+tls: true
+port: 30443
+listen: 127.0.0.1
+tls_certificate: tmp/crt
+tls_certificate_key: tmp/key
+content_types:
+  '\.html$': "text/html"
+  '\.xhtml$': "application/xhtml+xml"
+  '\.png$': "image/png"
+  '\.jpg$': "image/jpeg"
+  '\.css$': "text/css"
+  '\.js$': "application/javascript"
+  '\.atom$': "application/atom+xml"
