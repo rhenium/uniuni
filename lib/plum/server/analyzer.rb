@@ -22,9 +22,9 @@ module Plum::Server
     def parse_html(file)
       doc = Oga.parse_html(File.read(file))
       assets = []
-      doc.xpath("img").each {|img| assets << img.get("src") }
-      doc.xpath("//html/head/link[@rel='stylesheet']").each {|css| assets << css.get("href") }
-      doc.xpath("script").each {|js| assets << js.get("src") }
+      doc.xpath("//img").each {|img| assets << img.get("src") }
+      doc.xpath("/html/head/link[@rel='stylesheet']").each {|css| assets << css.get("href") }
+      doc.xpath("//script").each {|js| assets << js.get("src") }
     
       assets.compact.uniq.map {|path|
         next nil if path.include?("//")
