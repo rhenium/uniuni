@@ -11,6 +11,7 @@ module Plum::Server
       if Config.debug
         begin
           require "sslkeylog/autotrace"
+          Logger.debug "sslkeylog loaded."
         rescue LoadError
         end
       end
@@ -19,6 +20,24 @@ module Plum::Server
         server = HTTPSServer.new
       else
         server = HTTPServer.new
+      end
+
+      if Config.user
+        begin
+          user = Config.user
+          group = Config.group || user
+          Logger.info "Dropping process privilege to #{user}:#{group}"
+
+          cuid, cgid = Process.euid, Process.egid
+          tuid, tgid = Etc.getpwnam(user).uid, Etc.getgrnam(group).gid
+
+          Process.initgroups(user, tgid)
+          Process::GID.change_privilege(tgid)
+          Process::UID.change_privilege(tuid)
+        rescue Errno::EPERM => e
+          Logger.fatal "Could not change privilege: #{e}"
+          exit 2
+        end
       end
 
       server.start
