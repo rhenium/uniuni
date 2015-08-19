@@ -2,18 +2,26 @@ module Plum::Server
   class Session
     def initialize(sock, connection)
       @plum = connection.new(sock)
+
+      if sock.respond_to?(:peeraddr)
+        @logprefix = "#{sock.peeraddr.last}: "
+      elsif sock.respond_to?(:io) && sock.io.respond_to?(:peeraddr)
+        @logprefix = "#{sock.io.peeraddr.last}: "
+      else
+        @logprefix = ""
+      end
     end
   
     def run
-      @plum.on(:frame) {|frame| Logger.debug("recv: #{frame.inspect}") }
-      @plum.on(:send_frame) {|frame| Logger.debug("send: #{frame.inspect}") }
-      @plum.on(:remote_settings) {|settings| Logger.debug(settings.map {|name, value| "#{name}: #{value}" }.join(", ")) }
-      @plum.on(:connection_error) {|exception| Logger.info(exception.to_s + " // " + exception.backtrace.join(" // ")) }
+      @plum.on(:frame) {|frame| Logger.debug("#{@logprefix}: recv: #{frame.inspect}") }
+      @plum.on(:send_frame) {|frame| Logger.debug("#{@logprefix}: send: #{frame.inspect}") }
+      @plum.on(:remote_settings) {|settings| Logger.debug(@logprefix + settings.map {|name, value| "#{name}: #{value}" }.join(", ")) }
+      @plum.on(:connection_error) {|exception| Logger.info(@logprefix + exception.to_s + " // " + exception.backtrace.join(" // ")) }
       
       @plum.on(:stream) do |stream|
         headers = data = nil
         Logger.debug("#{stream.id}: stream open")
-        stream.on(:stream_error) {|exception| Logger.info(exception.to_s + " // " + exception.backtrace.join(" // ")) }
+        stream.on(:stream_error) {|exception| Logger.info(@logprefix + exception.to_s + " // " + exception.backtrace.join(" // ")) }
       
         stream.on(:open) {
           headers = nil
@@ -21,7 +29,7 @@ module Plum::Server
         }
       
         stream.on(:headers) {|headers_|
-          Logger.debug(headers_.map {|name, value| "#{name}: #{value}" }.join(", "))
+          Logger.debug(@logprefix + headers_.map {|name, value| "#{name}: #{value}" }.join(", "))
           headers = headers_.to_h
         }
       
@@ -31,10 +39,11 @@ module Plum::Server
         }
   
         stream.on(:end_stream) do
-          Logger.info(headers[":method"] + " " + headers[":path"])
           if headers[":method"] == "GET"
+            Logger.info(@logprefix + "request: GET " + headers[":path"])
             get(stream, headers)
           else
+            Logger.info(@logprefix + "request: " + headers[":method"] + " " + headers[":path"])
             respond_error(stream, 501, headers, data)
           end
         end
@@ -52,17 +61,20 @@ module Plum::Server
       httppath << Config.index if httppath.end_with?("/")
 
       unless httppath.start_with?("/")
-        # Invalid :path
+        Logger.info(@logprefix + "invalid path: " + httppath)
         return respond_error(stream, 400, headers)
       end
 
       realpath = Assets.realpath(httppath)
 
       if !Assets.underroot?(realpath)
+        Logger.info(@logprefix + "invalid path: " + httppath)
         return respond_error(stream, 404, headers)
       elsif Dir.exist?(realpath)
+        Logger.info(@logprefix + "directory redirect: " + httppath)
         return respond_redirect(stream, 308, httppath + "/")
       elsif !File.exist?(realpath)
+        Logger.info(@logprefix + "not found: " + httppath)
         return respond_error(stream, 404, headers)
       end
 
@@ -70,6 +82,7 @@ module Plum::Server
       io = Assets.fetch(realpath)
   
       i_sts = Assets.dependencies(httppath).map {|asset|
+        Logger.info(@logprefix + "server push: " + asset)
         st = stream.promise({
           ":authority": headers[":authority"],
           ":method": "GET",
@@ -104,6 +117,7 @@ module Plum::Server
     end
 
     def respond(stream, code, headers, data = nil)
+      Logger.info(@logprefix + "respond #{code}")
       if data
         stream.respond({
           ":status": code,

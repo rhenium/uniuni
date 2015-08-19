@@ -8,10 +8,9 @@ module Plum::Server
       loop do
         begin
           sock = @tcp_server.accept
-          id = sock.fileno
-          Logger.debug "#{id}: accept!"
+          Logger.debug "#{sock.peeraddr.last}: accept"
         rescue => e
-          Logger.info e
+          Logger.warn e
           next
         end
 
@@ -21,6 +20,7 @@ module Plum::Server
           begin
             session.run
           rescue Plum::LegacyHTTPError => e
+            Logger.info "#{sock.peeraddr.last}: LegacyHTTP: #{e.parser.request_url.to_s}"
             path = "https://" + e.headers["host"].to_s + e.parser.request_url.to_s
 
             data = "<!DOCTYPE html>\n" <<
@@ -39,12 +39,11 @@ module Plum::Server
 
             sock.write(resp)
           rescue => e
-            Logger.warn e
+            Logger.warn sock.peeraddr.last + ": " + e.to_s
           ensure
             session.close
           end
         }
-        thread.abort_on_exception = true
       end
     end
   end
