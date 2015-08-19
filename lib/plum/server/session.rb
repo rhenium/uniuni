@@ -17,11 +17,12 @@ module Plum::Server
       @plum.on(:send_frame) {|frame| Logger.debug("#{@logprefix}: send: #{frame.inspect}") }
       @plum.on(:remote_settings) {|settings| Logger.debug(@logprefix + settings.map {|name, value| "#{name}: #{value}" }.join(", ")) }
       @plum.on(:connection_error) {|exception| Logger.info(@logprefix + exception.to_s + " // " + exception.backtrace.join(" // ")) }
+      @plum.on(:goaway) {|frame| Logger.debug("#{@logprefix}: recv goaway: #{frame.payload.inspect}") }
       
       @plum.on(:stream) do |stream|
         headers = data = nil
-        Logger.debug("#{stream.id}: stream open")
-        stream.on(:stream_error) {|exception| Logger.info(@logprefix + exception.to_s + " // " + exception.backtrace.join(" // ")) }
+        Logger.debug("#{@logprefix}#{stream.id}: stream open")
+        stream.on(:stream_error) {|exception| Logger.info(@logprefix + "#{stream.id}: " + exception.to_s + " // " + exception.backtrace.join(" // ")) }
       
         stream.on(:open) {
           headers = nil
@@ -29,21 +30,21 @@ module Plum::Server
         }
       
         stream.on(:headers) {|headers_|
-          Logger.debug(@logprefix + headers_.map {|name, value| "#{name}: #{value}" }.join(", "))
+          Logger.debug(@logprefix + "#{stream.id}: " + headers_.map {|name, value| "#{name}: #{value}" }.join(", "))
           headers = headers_.to_h
         }
       
         stream.on(:data) {|data_|
-          Logger.debug(data_)
+          Logger.debug(@logprefix + "#{stream.id}: " + data_)
           data << data_
         }
   
         stream.on(:end_stream) do
           if headers[":method"] == "GET"
-            Logger.info(@logprefix + "request: GET " + headers[":path"])
+            Logger.info(@logprefix + "#{stream.id}: request: GET " + headers[":path"])
             get(stream, headers)
           else
-            Logger.info(@logprefix + "request: " + headers[":method"] + " " + headers[":path"])
+            Logger.info(@logprefix + "#{stream.id}: request: " + headers[":method"] + " " + headers[":path"])
             respond_error(stream, 501, headers, data)
           end
         end
@@ -61,47 +62,51 @@ module Plum::Server
       httppath << Config.index if httppath.end_with?("/")
 
       unless httppath.start_with?("/")
-        Logger.info(@logprefix + "invalid path: " + httppath)
+        Logger.info(@logprefix + "#{stream.id}: invalid path: " + httppath)
         return respond_error(stream, 400, headers)
       end
 
       realpath = Assets.realpath(httppath)
 
       if !Assets.underroot?(realpath)
-        Logger.info(@logprefix + "invalid path: " + httppath)
+        Logger.info(@logprefix + "#{stream.id}: invalid path: " + httppath)
         return respond_error(stream, 404, headers)
       elsif Dir.exist?(realpath)
-        Logger.info(@logprefix + "directory redirect: " + httppath)
+        Logger.info(@logprefix + "#{stream.id}: directory redirect: " + httppath)
         return respond_redirect(stream, 308, httppath + "/")
       elsif !File.exist?(realpath)
-        Logger.info(@logprefix + "not found: " + httppath)
+        Logger.info(@logprefix + "#{stream.id}: not found: " + httppath)
         return respond_error(stream, 404, headers)
       end
 
       size = File.stat(realpath).size
       io = Assets.fetch(realpath)
   
-      i_sts = Assets.dependencies(httppath).map {|asset|
-        Logger.info(@logprefix + "server push: " + asset)
-        st = stream.promise({
-          ":authority": headers[":authority"],
-          ":method": "GET",
-          ":scheme": "https",
-          ":path": asset })
-        [st, asset]
-      }
+      if @plum.push_enabled?
+        i_sts = Assets.dependencies(httppath).map {|asset|
+          st = stream.promise({
+            ":authority": headers[":authority"],
+            ":method": "GET",
+            ":scheme": "https",
+            ":path": asset })
+          Logger.info(@logprefix + "#{st.id}: server push: " + asset)
+          [st, asset]
+        }
+      end
   
       respond(stream, 200, {
         "content-type": content_type(httppath),
         "content-length": size }, io)
   
-      i_sts.each do |st, asset|
-        rep = Assets.realpath(asset)
-        asize = File.stat(rep).size
-        aio = Assets.fetch(rep)
-        respond(st, 200, {
-          "content-type": content_type(asset),
-          "content-length": asize }, aio)
+      if @plum.push_enabled?
+        i_sts.each do |st, asset|
+          rep = Assets.realpath(asset)
+          asize = File.stat(rep).size
+          aio = Assets.fetch(rep)
+          respond(st, 200, {
+            "content-type": content_type(asset),
+            "content-length": asize }, aio)
+        end
       end
     end
   
@@ -117,7 +122,7 @@ module Plum::Server
     end
 
     def respond(stream, code, headers, data = nil)
-      Logger.info(@logprefix + "respond #{code}")
+      Logger.info(@logprefix + "#{stream.id}: respond #{code}")
       if data
         stream.respond({
           ":status": code,
