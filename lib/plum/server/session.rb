@@ -82,7 +82,7 @@ module Plum::Server
       size = File.stat(realpath).size
       io = Assets.fetch(realpath)
   
-      if @plum.push_enabled?
+      if Config.push && @plum.push_enabled?
         i_sts = Assets.dependencies(httppath).map {|asset|
           st = stream.promise({
             ":authority": headers[":authority"],
@@ -98,7 +98,7 @@ module Plum::Server
         "content-type": content_type(httppath),
         "content-length": size }, io)
   
-      if @plum.push_enabled?
+      if Config.push && @plum.push_enabled?
         i_sts.each do |st, asset|
           rep = Assets.realpath(asset)
           asize = File.stat(rep).size

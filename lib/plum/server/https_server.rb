@@ -17,7 +17,7 @@ module Plum::Server
 
         thread = Thread.new {
           begin
-            if sock.alpn_protocol == "h2"
+            if sock.alpn_protocol == "h2" && sock.ssl_version >= "TLSv1.2"
               session = Session.new(sock, Plum::HTTPSConnection)
               session.run
             else
@@ -25,6 +25,7 @@ module Plum::Server
               parser.on_message_complete = proc do
                 Logger.info "#{sock.io.peeraddr.last}: LegacyHTTP: #{parser.request_url.to_s}"
                 data = "<!DOCTYPE html>\n" <<
+                       "<meta charset=\"UTF-8\">\n" <<
                        "<title>HTTP/1.1 505 HTTP Version Not Supported</title>\n" <<
                        "<p>あなたのウェブブラウザは HTTP/2 に対応していません。</p>\n"
 
@@ -56,7 +57,6 @@ module Plum::Server
     private
     def ssl_context
       ctx = OpenSSL::SSL::SSLContext.new
-      ctx.ssl_version = :TLSv1_2
       ctx.alpn_select_cb = -> protocols {
         Logger.debug "peer advertived: #{protocols}"
         if protocols.include?("h2")
@@ -70,6 +70,7 @@ module Plum::Server
       }
 
       ctx.cert = OpenSSL::X509::Certificate.new(File.read(Config.tls_certificate))
+      ctx.extra_chain_cert = [OpenSSL::X509::Certificate.new(File.read(Config.tls_certificate_ca))] if Config.tls_certificate_ca
       ctx.key = OpenSSL::PKey::RSA.new(File.read(Config.tls_certificate_key))
       ctx
     end

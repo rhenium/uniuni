@@ -24,6 +24,7 @@ module Plum::Server
             path = "https://" + e.headers["host"].to_s + e.parser.request_url.to_s
 
             data = "<!DOCTYPE html>\n" <<
+                   "<meta charset=\"UTF-8\">\n" <<
                    "<title>HTTP/1.1 505 HTTP Version Not Supported</title>\n" <<
                    "<p>あなたのウェブブラウザは http URI スキームでの HTTP/2 に対応していません。</p>\n" <<
                    "<p>いくつかのウェブブラウザは https URI スキームでのみ HTTP/2 に対応しています。</p>" <<
