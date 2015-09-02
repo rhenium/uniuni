@@ -1,8 +1,7 @@
 /.bundle/
 /.yardoc
 /Gemfile.lock
-/tmp/key
-/tmp/crt
+/tmp/*
 .*.sw*
 .*.local
 /plum.yml
