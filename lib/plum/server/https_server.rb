@@ -16,6 +16,7 @@ module Plum::Server
         end
 
         thread = Thread.new {
+          session = nil
           begin
             if sock.alpn_protocol == "h2" && sock.ssl_version >= "TLSv1.2"
               session = Session.new(sock, Plum::HTTPSConnection)
@@ -47,8 +48,10 @@ module Plum::Server
             end
           rescue => e
             Logger.warn sock.io.peeraddr.last + ": " + e.to_s
+            Logger.warn sock.io.peeraddr.last + ": " + e.backtrace.join("\n")
           ensure
             sock.close
+            session.close if session
           end
         }
       end

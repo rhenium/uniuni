@@ -2,6 +2,7 @@ module Plum::Server
   class Session
     def initialize(sock, connection)
       @plum = connection.new(sock)
+      @threads = []
 
       if sock.respond_to?(:peeraddr)
         @logprefix = "#{sock.peeraddr.last}: "
@@ -40,13 +41,17 @@ module Plum::Server
         }
   
         stream.on(:end_stream) do
-          if headers[":method"] == "GET"
-            Logger.info(@logprefix + "#{stream.id}: request: GET " + headers[":path"])
-            get(stream, headers)
-          else
-            Logger.info(@logprefix + "#{stream.id}: request: " + headers[":method"] + " " + headers[":path"])
-            respond_error(stream, 501, headers, data)
-          end
+          thread = Thread.new {
+            begin
+              responder = Responder.new(stream, headers, data, @plum, @logprefix)
+              responder.respond_request
+            rescue => e
+              Logger.warn "#{@logprefix}: " + e.to_s
+              Logger.warn "#{@logprefix}: " + e.backtrace.join("\n")
+            end
+          }
+          thread.abort_on_exception = true
+          @threads << thread
         end
       end
   
@@ -55,88 +60,7 @@ module Plum::Server
 
     def close
       @plum.close
-    end
-  
-    def get(stream, headers)
-      httppath = headers[":path"].dup
-      httppath << Config.index if httppath.end_with?("/")
-
-      unless httppath.start_with?("/")
-        Logger.info(@logprefix + "#{stream.id}: invalid path: " + httppath)
-        return respond_error(stream, 400, headers)
-      end
-
-      realpath = Assets.realpath(httppath)
-
-      if !Assets.underroot?(realpath)
-        Logger.info(@logprefix + "#{stream.id}: invalid path: " + httppath)
-        return respond_error(stream, 404, headers)
-      elsif Dir.exist?(realpath)
-        Logger.info(@logprefix + "#{stream.id}: directory redirect: " + httppath)
-        return respond_redirect(stream, 308, httppath + "/")
-      elsif !File.exist?(realpath)
-        Logger.info(@logprefix + "#{stream.id}: not found: " + httppath)
-        return respond_error(stream, 404, headers)
-      end
-
-      size = File.stat(realpath).size
-      io = Assets.fetch(realpath)
-  
-      if Config.push && @plum.push_enabled?
-        i_sts = Assets.dependencies(httppath).map {|asset|
-          st = stream.promise({
-            ":authority": headers[":authority"],
-            ":method": "GET",
-            ":scheme": "https",
-            ":path": asset })
-          Logger.info(@logprefix + "#{st.id}: server push: " + asset)
-          [st, asset]
-        }
-      end
-  
-      respond(stream, 200, {
-        "content-type": content_type(httppath),
-        "content-length": size }, io)
-  
-      if Config.push && @plum.push_enabled?
-        i_sts.each do |st, asset|
-          rep = Assets.realpath(asset)
-          asize = File.stat(rep).size
-          aio = Assets.fetch(rep)
-          respond(st, 200, {
-            "content-type": content_type(asset),
-            "content-length": asize }, aio)
-        end
-      end
-    end
-  
-    def respond_error(stream, status_code, headers, data = nil)
-      body = headers.map {|name, value| "#{name}: #{value}" }.join("\n") + "\n" + data.to_s
-      respond(stream, status_code, {
-        "content-type": "text/plain",
-        "content-length": body.bytesize }, body)
-    end
-
-    def respond_redirect(stream, status_code, location)
-      respond(stream, status_code, { "location": location })
-    end
-
-    def respond(stream, code, headers, data = nil)
-      Logger.info(@logprefix + "#{stream.id}: respond #{code}")
-      if data
-        stream.respond({
-          ":status": code,
-          "server": "plum/#{Plum::VERSION}" }.merge(headers), data)
-      else
-        stream.respond({
-          ":status": code,
-          "server": "plum/#{Plum::VERSION}"}.merge(headers))
-      end
-    end
-
-    def content_type(filename)
-      exp, ct = Config.content_types.lazy.select {|pat, e| Regexp.new(pat) =~ filename }.first
-      ct || "text/plain"
+      @threads.each(&:kill)
     end
   end
 end

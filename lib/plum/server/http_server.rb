@@ -41,6 +41,7 @@ module Plum::Server
             sock.write(resp)
           rescue => e
             Logger.warn sock.peeraddr.last + ": " + e.to_s
+            Logger.warn sock.io.peeraddr.last + ": " + e.backtrace.join("\n")
           ensure
             session.close
           end
