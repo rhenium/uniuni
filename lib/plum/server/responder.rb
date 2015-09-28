@@ -32,11 +32,6 @@ module Plum::Server
       parser = Http::Parser.new
       parser.on_headers_complete = proc {
         Logger.info(@logprefix + "#{stream.id}: respond #{parser.status_code}")
-        # stream.__send__(:send_headers, parser.headers.map {|k, v| [k.downcase, v] }.to_h.merge(
-        #   "connection" => "close",
-        #   ":status" => parser.status_code,
-        #   "x-server" => parser.headers["Server"],
-        #   "server" => "plum/#{Plum::VERSION}"), end_stream: false)
         stream.__send__(:send_headers,
                         {":status" => parser.status_code}.merge(parser.headers.map {|k, v| [k.downcase, v] }.to_h).merge(
                           "x-server" => parser.headers["Server"],

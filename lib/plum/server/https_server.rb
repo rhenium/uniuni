@@ -22,29 +22,8 @@ module Plum::Server
               session = Session.new(sock, Plum::HTTPSConnection)
               session.run
             else
-              parser = HTTP::Parser.new
-              parser.on_message_complete = proc do
-                Logger.info "#{sock.io.peeraddr.last}: LegacyHTTP: #{parser.request_url.to_s}"
-                data = "<!DOCTYPE html>\n" <<
-                       "<meta charset=\"UTF-8\">\n" <<
-                       "<title>HTTP/1.1 505 HTTP Version Not Supported</title>\n" <<
-                       "<p>あなたのウェブブラウザは HTTP/2 に対応していません。</p>\n"
-
-                resp = ""
-                resp << "HTTP/1.1 505 HTTP Version Not Supported\r\n"
-                resp << "Content-Type: text/html\r\n"
-                resp << "Content-Length: #{data.bytesize}\r\n"
-                resp << "Server: plum/#{Plum::VERSION}\r\n"
-                resp << "\r\n"
-                resp << data
-
-                sock.write(resp)
-                sock.close
-              end
-
-              while !sock.closed? && !sock.eof?
-                parser << sock.readpartial(1024)
-              end
+              session = LegacySession.new(sock)
+              session.run
             end
           rescue => e
             Logger.warn sock.io.peeraddr.last + ": " + e.to_s
