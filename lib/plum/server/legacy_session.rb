@@ -28,7 +28,14 @@ module Plum::Server
           ret = IO.select([@sock, upstream])
           ret[0].each do |s|
             a = s.readpartial(1024)
-            (s == upstream ? @sock : upstream).write(a)
+            if s == upstream
+              @sock.write(a)
+              if %r{GET (/.+?) HTTP/1} =~ a
+                Logger.info "#{@sock.io.peeraddr.last}: LegacyHTTP: ??GET??#{$1}??"
+              end
+            else
+              upstream.write(a)
+            end
           end
         end
       rescue EOFError
