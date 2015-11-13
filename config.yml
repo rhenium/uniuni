@@ -1,4 +1,3 @@
-dependency_cache: ./dependency.yml
 mime_types:
   '.html': "text/html"
   '.xhtml': "application/xhtml+xml"
@@ -12,6 +11,7 @@ sites:
     root: /srv/http/rhe.jp
     index: index.html
     default-type: text/html
+    dependency_cache: ./dependency.yml
     prefixes:
       "/shoot":
         origin:

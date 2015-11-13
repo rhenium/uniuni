@@ -1,4 +1,4 @@
-module Plum::Server
+module Uniuni
   class Analyzer
     def initialize
     end

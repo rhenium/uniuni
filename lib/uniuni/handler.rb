@@ -4,6 +4,7 @@ module Uniuni
       @root = File.expand_path(pconfig["root"])
       @index = pconfig["index"] || "index.html"
       @default_mime_type = pconfig["default-type"] || "text/plain"
+      @push_map = pconfig["dependency_cache"] && YAML.load_file(pconfig["dependency_cache"]) || {}
     end
 
     def handle(env, path)
@@ -39,6 +40,10 @@ module Uniuni
         # if range = env["HTTP_RANGE"]
         #   ranges = parse_range(range)
         # end
+
+        if spush = @push_map[path]
+          headers["plum.serverpush"] = spush.map { |pp| "GET #{pp}" }.join(";") # TODO: client may have cache
+        end
         [200, headers, File.open(rpath, "rb")]
       else
         [200, headers, []]
