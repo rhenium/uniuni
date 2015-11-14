@@ -1,25 +1,39 @@
+require "pathname"
+require "oga"
+
 module Uniuni
   class Analyzer
-    def initialize
+    def initialize(file)
+      @config = YAML.load_file(file)
     end
 
-    def start
+    def run
+      @config["sites"].each do |host, conf|
+        analyze(conf)
+      end
+    end
+
+    def analyze(conf)
+      root = conf["root"]
+      dfile = conf["dependency-map"]
+      return unless dfile
+
       dic = {}
-      Dir.glob(File.expand_path("./**/*.html", Config.root)) do |file|
-        deps = parse_html(file)
+      Dir.glob(File.expand_path("./**/*.html", root)) do |file|
+        deps = parse_html(root, file)
 
-        fileabs = get_abs(file)
-        depabs = deps.map {|dep| get_abs(dep) }
+        fileabs = get_abs(root, file)
+        depabs = deps.map {|dep| get_abs(root, dep) }
 
-        Logger.debug "#{fileabs}: #{depabs.join(", ")}"
+        puts "#{fileabs}: #{depabs.join(", ")}"
         dic[fileabs] = depabs
       end
 
-      YAML.dump(dic, File.open(Config.dependency_cache, "w"))
+      YAML.dump(dic, File.open(dfile, "w"))
     end
 
     private
-    def parse_html(file)
+    def parse_html(root, file)
       doc = Oga.parse_html(File.read(file))
       assets = []
       doc.xpath("//img").each {|img| assets << img.get("src") }
@@ -30,19 +44,19 @@ module Uniuni
         next nil if path.include?("//")
     
         if path.start_with?("/")
-          File.expand_path(Config.root + path)
+          File.expand_path(root + path)
         else
           File.expand_path(path, file)
         end
       }.compact.select {|path|
-        !get_abs(path).include?("..") && File.file?(path)
+        !get_abs(root, path).include?("..") && File.file?(path)
       }
     rescue => e
       []
     end
 
-    def get_abs(file)
-      root_pn = Pathname.new(Config.root)
+    def get_abs(root, file)
+      root_pn = Pathname.new(root)
       file_pn = Pathname.new(file)
       "/" << file_pn.relative_path_from(root_pn).to_s
     end

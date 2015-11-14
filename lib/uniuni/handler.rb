@@ -4,7 +4,7 @@ module Uniuni
       @root = File.expand_path(pconfig["root"])
       @index = pconfig["index"] || "index.html"
       @default_mime_type = pconfig["default-type"] || "text/plain"
-      @push_map = pconfig["dependency_cache"] && YAML.load_file(pconfig["dependency_cache"]) || {}
+      @push_map = pconfig["dependency-map"] && YAML.load_file(pconfig["dependency-map"]) || {}
     end
 
     def handle(env, path)

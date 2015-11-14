@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-$LOAD_PATH << File.expand_path("../../lib", __FILE__)
-require "plum/server"
+$LOAD_PATH.unshift File.expand_path("../../lib", __FILE__)
+require "uniuni"
 
-Plum::Server::CLI.start(ARGV)
+Uniuni::CLI.new(ARGV)

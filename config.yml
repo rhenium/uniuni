@@ -10,10 +10,9 @@ sites:
   "rhe.jp":
     root: /srv/http/rhe.jp
     index: index.html
-    default-type: text/html
-    dependency_cache: ./dependency.yml
+    default-type: text/plain
+    dependency-map: ./dependency.yml
     prefixes:
       "/shoot":
-        origin:
-          host: shootingstar.fm
-          port: 80
+        host: shootingstar.fm
+        port: 80

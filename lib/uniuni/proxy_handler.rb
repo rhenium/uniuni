@@ -1,8 +1,8 @@
 module Uniuni
   class ProxyHandler
     def initialize(pconfig)
-      @host = pconfig["origin"]["host"]
-      @port = pconfig["origin"]["port"]
+      @host = pconfig["host"]
+      @port = pconfig["port"]
     end
 
     def handle(env, path)
