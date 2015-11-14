@@ -61,7 +61,12 @@ module Uniuni
 
     MIME_TYPE = {
       ".html" => "text/html",
+      ".xhtml" => "application/xhtml+xml",
+      ".png" => "image/png",
+      ".jpg" => "image/jpeg",
       ".css" => "text/css",
+      ".js" => "application/javascript",
+      ".atom" => "application/atom+xml",
     }.sort_by { |suf, typ| -suf.size }
     def mime_type(rpath)
       _, type = MIME_TYPE.find { |suffix, type| rpath.end_with?(suffix) }

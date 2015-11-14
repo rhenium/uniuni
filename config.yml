@@ -1,11 +1,3 @@
-mime_types:
-  '.html': "text/html"
-  '.xhtml': "application/xhtml+xml"
-  '.png': "image/png"
-  '.jpg': "image/jpeg"
-  '.css': "text/css"
-  '.js': "application/javascript"
-  '.atom': "application/atom+xml"
 sites:
   "rhe.jp":
     root: /srv/http/rhe.jp

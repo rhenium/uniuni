@@ -13,7 +13,6 @@ require "uniuni/proxy_handler"
 require "uniuni/lazy_client_response"
 require "uniuni/cli"
 require "uniuni/analyzer"
-#require "uniuni/responder"
 
 module Uniuni
   VERSION = "0.0.1"
