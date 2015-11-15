@@ -13,6 +13,7 @@ module Uniuni
 
     DEFAULT_HEADERS = {
       "x-powered-by" => "uniuni/#{Uniuni::VERSION}",
+      "content-type" => "text/plain",
     }
 
     def initialize(pconfig)
@@ -36,14 +37,14 @@ module Uniuni
 
     private
     def handle_local_get(env, path)
-      return [404, DEFAULT_HEADERS, []] unless path.start_with?("/")
+      return [404, DEFAULT_HEADERS, ["?? :path not start with '/' ??"]] unless path.start_with?("/")
       path << @index if path.end_with?("/")
 
       rpath = realpath(path)
-      return [404, DEFAULT_HEADERS, []] unless rpath
+      return [404, DEFAULT_HEADERS, ["?? directory traversal ??"]] unless rpath
 
       stat = File.stat(rpath)
-      return [308, DEFAULT_HEADERS.merge({ "location" => path + "/" }), []] if stat.directory?
+      return [308, DEFAULT_HEADERS.merge({ "location" => path + "/" }), ["directory redirect"]] if stat.directory?
 
       last_modified = stat.mtime.httpdate
       return [304, DEFAULT_HEADERS, []] if env["HTTP_IF_MODIFIED_SINCE"] == last_modified
@@ -70,11 +71,10 @@ module Uniuni
         [200, headers, []]
       end
     rescue SystemCallError
-      [404, DEFAULT_HEADERS, []]
+      [404, DEFAULT_HEADERS, ["?? not found ??"]]
     end
 
     def realpath(path)
-      return nil unless path.start_with?("/")
       rpath = File.expand_path(path[1..-1], @root)
       return nil unless rpath.start_with?(@root + "/")
       rpath
