@@ -8,3 +8,6 @@ sites:
       "/shoot":
         host: shootingstar.fm
         port: 80
+      "/~":
+        host: cashew
+        port: 80

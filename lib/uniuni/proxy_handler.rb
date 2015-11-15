@@ -17,6 +17,8 @@ module Uniuni
         next if k == "HTTP_HOST"
         headers[k[5..-1].gsub("_", "-").downcase] = v
       }
+      headers["x-forwarded-for"] = env["REMOTE_ADDR"]
+      headers["forwarded"] = "for=#{env["REMOTE_ADDR"]}"
 
       body = String.new
       env["rack.input"].each { |chunk|
